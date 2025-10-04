@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asteroids — GALACTICOS</title>
+<link rel="icon" href="{{ url_for('static', filename='imgs/logo.jpeg') }}" type="image/x-icon">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
+
+  :root{
+    --bg-1: #030313;
+    --bg-2: #0b1020;
+    --accent: #5CE1E6;
+    --danger: #FF4C4C;
+    --glass: rgba(255,255,255,0.04);
+  }
+
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: 'Orbitron', sans-serif;
+    background: radial-gradient(circle at 10% 10%, var(--bg-1), var(--bg-2));
+    color:#e6eef2;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* starfield layer */
+  #stars {
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    overflow:hidden;
+  }
+  .star {
+    position:absolute;
+    background: white;
+    border-radius:50%;
+    opacity:0.9;
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.06));
+    transform: translateZ(0);
+  }
+  @keyframes driftDown {
+    from { transform: translateY(-10vh) scale(1); opacity: 1; }
+    to   { transform: translateY(110vh) scale(0.6); opacity: 0; }
+  }
+
+  /* layout */
+  .page {
+    position:relative;
+    z-index:2;
+    max-width:1100px;
+    margin:48px auto;
+    padding:28px;
+    backdrop-filter: blur(6px);
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px;
+    padding:22px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.6);
+    border: 1px solid rgba(92,225,230,0.06);
+    margin-bottom:18px;
+  }
+
+  header.site-header {
+    display:flex;
+    gap:16px;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:12px;
+  }
+
+  .brand {
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+
+  .brand img{
+    width:56px;
+    height:56px;
+    border-radius:8px;
+    object-fit:cover;
+    box-shadow: 0 6px 20px rgba(92,225,230,0.06);
+  }
+
+  h1 {
+    margin:0;
+    font-size:1.6rem;
+    color:var(--accent);
+    letter-spacing:0.8px;
+  }
+
+  .subtitle {
+    font-size:0.95rem;
+    color:#cfeff2;
+    opacity:0.9;
+  }
+
+  nav.actions {
+    display:flex;
+    gap:10px;
+  }
+
+  .btn {
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    text-decoration:none;
+    padding:10px 16px;
+    border-radius:10px;
+    font-weight:600;
+    color:#06121a;
+    background:var(--accent);
+    box-shadow: 0 6px 18px rgba(92,225,230,0.12);
+  }
+
+  .btn.ghost {
+    background:transparent;
+    color:var(--accent);
+    border:1px solid rgba(92,225,230,0.08);
+  }
+
+  /* content typography */
+  h2 {
+    color:#ffffff;
+    margin:8px 0 10px 0;
+    font-size:1.1rem;
+  }
+
+  p {
+    margin:8px 0;
+    color:#d6e9ef;
+    line-height:1.6;
+    font-size:0.99rem;
+  }
+
+  .two-col {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:18px;
+  }
+
+  .badge {
+    display:inline-block;
+    padding:6px 10px;
+    font-size:0.78rem;
+    border-radius:999px;
+    background: rgba(92,225,230,0.06);
+    color:var(--accent);
+    border:1px solid rgba(92,225,230,0.06);
+  }
+
+  .highlight {
+    color:var(--danger);
+    font-weight:700;
+  }
+
+  .cta {
+    margin-top:12px;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .panel-list {
+    list-style:none;
+    margin:0;
+    padding:0;
+  }
+
+  .panel-list li {
+    padding:8px 0;
+    border-bottom:1px dashed rgba(255,255,255,0.03);
+    color:#d0e9ef;
+  }
+
+  footer {
+    margin-top:14px;
+    text-align:center;
+    color:#98c9cf;
+    font-size:0.9rem;
+    opacity:0.9;
+  }
+
+  /* responsive */
+  @media (max-width:900px){
+    .two-col { grid-template-columns: 1fr; }
+    .brand img{width:48px;height:48px;}
+    .page{ margin:18px; padding:18px;}
+  }
+
+</style>
+</head>
+<body>
+
+  <!-- animated stars layer -->
+  <div id="stars" aria-hidden="true"></div>
+
+  <main class="page" role="main">
+    <header class="site-header">
+      <div class="brand" aria-hidden="false">
+        <img src="{{ url_for('static', filename='imgs/logo.jpeg') }}" alt="GALACTICOS logo">
+        <div>
+          <h1>Asteroids, Meteors & Impacts</h1>
+          <div class="subtitle">Understanding small bodies and their effects on Earth</div>
+        </div>
+      </div>
+
+      <nav class="actions" aria-label="Site actions">
+        <a class="btn" href="/">← Back to Mission</a>
+        <a class="btn ghost" href="#interactive">Open Interactive Tool</a>
+      </nav>
+    </header>
+
+    <section class="card" aria-labelledby="overview-title">
+      <h2 id="overview-title">Overview</h2>
+      <p>
+        Asteroids — sometimes called minor planets — are rocky, airless remnants left over from the early formation of our solar system about 4.6 billion years ago.
+        Most asteroids orbit the Sun in the main belt between Mars and Jupiter. Sizes range from Vesta (~530 km diameter) down to bodies less than 10 meters across.
+        The combined mass of all asteroids is smaller than the Moon.
+      </p>
+
+      <div class="two-col" style="margin-top:10px;">
+        <div>
+          <h3 style="margin:0 0 6px 0;">Near-Earth Objects (NEOs)</h3>
+          <p>
+            Objects (asteroids or comets) whose orbits bring them close to Earth's neighborhood are known as Near-Earth Objects (NEOs).
+            About 99% of NEOs are asteroids. NEOs have perihelion distances less than 1.3 AU (astronomical units).
+          </p>
+
+          <h3 style="margin-top:12px;">Potentially Hazardous Asteroids (PHAs)</h3>
+          <p>
+            An asteroid is classified as a Potentially Hazardous Asteroid when its orbit comes within ~7.5 million kilometers of Earth's orbit and its estimated diameter is ≥140 meters.
+            This classification indicates a potential threat, not a guaranteed impact.
+          </p>
+        </div>
+
+        <div>
+          <h3 style="margin:0 0 6px 0;">Meteors & Meteorites</h3>
+          <p>
+            When small bodies (meteoroids) enter a planet's atmosphere at high speed and disintegrate, they create bright streaks called meteors — colloquially "shooting stars".
+            If a fragment survives atmospheric passage and reaches the ground, it is a meteorite.
+          </p>
+
+          <h3 style="margin-top:12px;">Typical Behavior</h3>
+          <p>
+            Most small space rocks (smaller than a football field) disintegrate in the atmosphere. Travelling at tens of thousands of kilometers per hour,
+            they break apart when dynamic pressure exceeds material strength. Usually less than 5% of the original mass reaches the surface.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="impactor-title">
+      <h2 id="impactor-title">The "Impactor-2025" Scenario</h2>
+      <p>
+        A newly identified near-Earth object called <span class="highlight">Impactor-2025</span> has been flagged as a potential threat. Current orbital solutions warrant monitoring and simulation.
+        Identifying probability, impact energy and likely consequences requires accurate orbital elements, size/mass estimates and entry-angle modeling.
+      </p>
+
+      <p>
+        <strong>How can we prepare?</strong> — Early detection, impact probability assessment, evacuation planning for high-risk zones, and testing mitigation strategies (e.g., deflection) are core measures.
+      </p>
+    </section>
+
+    <section class="card" id="interactive" aria-labelledby="tool-title">
+      <h2 id="tool-title">Interactive visualization & simulation tool</h2>
+
+      <p>
+        We developed an interactive visualization and simulation environment that allows users to:
+      </p>
+
+      <ul class="panel-list" aria-hidden="false">
+        <li>Explore asteroid orbits and visualize orbital trajectories</li>
+        <li>Simulate impact scenarios and estimate energy release and affected area</li>
+        <li>Compare mitigation strategies: kinetic deflection, evacuation footprints, warning times</li>
+        <li>Load or sample real datasets (e.g., NASA / USGS catalogue) for realistic scenarios</li>
+      </ul>
+
+      <div class="cta">
+        <!-- placeholder: connect this to your actual visualization route -->
+        <a class="btn" href="/visualization">Launch Simulation</a>
+        <a class="btn ghost" href="#howto">How to use</a>
+      </div>
+    </section>
+
+    <section class="card" id="howto" aria-labelledby="howto-title">
+      <h2 id="howto-title">How to use it</h2>
+      <p>
+        The tool provides intuitive controls: load an object (real or synthetic), adjust size/mass and entry angle, and run the simulation.
+        Interactive maps show projected impact zones and probabilistic damage layers. Use time sliders to view pre- and post-impact scenarios.
+      </p>
+
+      <h3 style="margin-top:12px;">What does it help me analyze?</h3>
+      <p>
+        The simulation helps estimate impact energy, crater size, blast overpressure ranges, thermal effects, and likely human/structural exposure.
+        It is a planning and education tool — results depend on input assumptions and should be interpreted with appropriate scientific caution.
+      </p>
+    </section>
+
+    <footer>
+      <div>GALACTICOS — Earth's Defense Initiative • © 2025</div>
+      <div style="margin-top:6px; font-size:0.85rem;">Data sources & references: NASA / USGS datasets (when used)</div>
+    </footer>
+  </main>
+
+<script>
+  // create layered moving stars with different speeds and sizes (parallax effect)
+  const starsEl = document.getElementById('stars');
+
+  function createStar({left, top, size, duration, delay, opacity, layer}) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.width = size + 'px';
+    s.style.height = size + 'px';
+    s.style.left = left + 'px';
+    s.style.top = top + 'px';
+    s.style.opacity = opacity;
+    s.style.animationDuration = duration + 's';
+    s.style.animationDelay = delay + 's';
+    // give slight blur for distant stars
+    if(layer === 3) s.style.filter = 'blur(0.8px)';
+    starsEl.appendChild(s);
+  }
+
+  // generate stars with three depth layers
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const total = 160;
+
+  for(let i=0;i<total;i++){
+    const layer = (i%3)+1;
+    const size = layer===1 ? (Math.random()*1.6 + 0.6) : layer===2 ? (Math.random()*2.2 + 1.2) : (Math.random()*3 + 2);
+    const duration = layer===1 ? (Math.random()*20 + 30) : layer===2 ? (Math.random()*25 + 35) : (Math.random()*30 + 50);
+    const delay = Math.random()*-40;
+    const left = Math.random()*W;
+    const top = Math.random()*H;
+    const opacity = 0.5 + Math.random()*0.6;
+    createStar({left, top, size, duration, delay, opacity, layer});
+  }
+
+  // handle resize to keep experience reasonable (simple reload for layout)
+  window.addEventListener('resize', () => {
+    // optional: better handling could reposition stars without reload
+    // location.reload();
+  });
+</script>
+
+</body>
+</html>

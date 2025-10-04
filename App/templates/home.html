@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/typewriter-effect@latest/dist/core.js"></script>
+<title>GALACTICOS - Earth's Defense</title>
+<link rel="icon" href="{{ url_for('static', filename='imgs/logo.jpeg') }}" type="image/x-icon">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Orbitron', sans-serif;
+    background-color: #000;
+    color: #fff;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* ===== Starry Background ===== */
+#stars {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: black;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.8;
+    animation: moveStar linear infinite;
+}
+
+@keyframes moveStar {
+    from { transform: translateY(0) scale(1); opacity: 1; }
+    to { transform: translateY(100vh) scale(0.5); opacity: 0; }
+}
+
+.container {
+    max-width: 70%;
+    text-align: center;
+    z-index: 2;
+    position: relative;
+}
+
+#text {
+    font-size: 1.3em;
+    line-height: 1.8;
+    text-align: center;
+    text-shadow: 0 0 8px #5CE1E6, 0 0 12px #5CE1E6;
+}
+
+/* ===== Fade-in for asteroid ===== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.asteroid-button img {
+    display: none;
+    opacity: 0;
+    animation: fadeIn 2s forwards;
+    margin-top: 20px;
+    width: 220px;
+    height: auto;
+    border-radius: 70%;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 20px #FF4C4C, 0 0 40px #FF4C4C;
+}
+
+.asteroid-button img:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 30px #FF4C4C, 0 0 50px #FF4C4C;
+}
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="container">
+    <div id="text"></div>
+    <!-- Clickable asteroid -->
+    <a href="{{ url_for('historia') }}" class="asteroid-button">
+        <img id="asteroid" src="{{ url_for('static', filename='imgs/AsterideNasa.png') }}" alt="Asteroid Impactor 2025">
+    </a>
+</div>
+
+<script>
+// ===== Generate moving stars =====
+const starCount = 200;
+const starsContainer = document.getElementById('stars');
+
+for (let i = 0; i < starCount; i++) {
+    let star = document.createElement('div');
+    star.classList.add('star');
+    let size = Math.random() * 3 + 1;
+    star.style.width = `${size}px`;
+    star.style.height = `${size}px`;
+    star.style.top = `${Math.random() * window.innerHeight}px`;
+    star.style.left = `${Math.random() * window.innerWidth}px`;
+    star.style.animationDuration = `${Math.random() * 10 + 5}s`; // speed
+    star.style.animationDelay = `${Math.random() * 5}s`; // delay
+    starsContainer.appendChild(star);
+}
+
+// ===== Typewriter text =====
+var text = document.getElementById('text');
+var asteroid = document.getElementById('asteroid');
+
+var TypeWriter = new Typewriter(text, {
+    loop: false,
+    delay: 40,
+    cursor: '<span style="color: #5CE1E6;">|</span>'
+});
+
+TypeWriter
+    .pauseFor(500)
+    .typeString('Hello, dear Earth inhabitant.')
+    .pauseFor(500)
+    .typeString('<br>We are team <span style="color:#c74a34ff; font-weight:bold;">GALACTICOS</span> and we have come to defend the Earth.')
+    .pauseFor(500)
+    .typeString('<br>A threat approaches: the asteroid <span style="color:#FF4C4C; font-weight:bold; text-shadow: 0 0 10px red;">Impactor 2025</span>.')
+    .pauseFor(500)
+    .typeString('<br>Get ready for our mission! Click the asteroid below to start defending Earth.')
+    .callFunction(() => {
+        asteroid.style.display = "inline-block";
+    })
+    .start();
+</script>
+
+</body>
+</html>
