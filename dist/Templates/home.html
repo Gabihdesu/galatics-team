@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://unpkg.com/typewriter-effect@latest/dist/core.js"></script>
 <title>GALACTICOS - Earth's Defense</title>
-<link rel="icon" href="{{ url_for('static', filename='imgs/logo.jpeg') }}" type="image/x-icon">
+<link rel="icon" href="../static/imgs/Logo_branco.webp" type="image/x-icon">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
 
@@ -68,22 +68,41 @@ body {
 }
 
 .asteroid-button img {
-    display: none;
-    opacity: 0;
-    animation: fadeIn 2s forwards;
-    margin-top: 20px;
-    width: 220px;
-    height: auto;
-    border-radius: 70%;
+    position: absolute;
+    top: -150px; /* começa fora da tela */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: 120px; /* tamanho do asteroide */
     cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    box-shadow: 0 0 20px #FF4C4C, 0 0 40px #FF4C4C;
+    animation: fall 3s ease-out forwards; /* animação de queda */
+    display: none; /* inicia escondido, será mostrado pelo typewriter */
 }
 
-.asteroid-button img:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 30px #FF4C4C, 0 0 50px #FF4C4C;
+
+@keyframes fall {
+    0% {
+        top: -200px;
+        transform: translateX(-50%) rotate(0deg) scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        top: 70%;
+        transform: translateX(-50%) rotate(15deg) scale(1);
+        opacity: 1;
+    }
+    100% {
+        top: 100%;
+        transform: translateX(-50%) rotate(-10deg) scale(1);
+        opacity: 1;
+    }
 }
+
+.asteroid-button img {
+    transform: translateX(-50%) scale(1.2) rotate(15deg);
+    transition: transform 0.3s ease;
+}
+
 </style>
 </head>
 <body>
@@ -93,9 +112,13 @@ body {
 <div class="container">
     <div id="text"></div>
     <!-- Clickable asteroid -->
-    <a href="{{ url_for('historia') }}" class="asteroid-button">
+    <a href="{{ url_for('video') }}" class="asteroid-button">
         <img id="asteroid" src="{{ url_for('static', filename='imgs/AsterideNasa.png') }}" alt="Asteroid Impactor 2025">
     </a>
+    <audio id="bgMusic" autoplay loop muted>
+        <source src="../static/audio/mayday.wav" type="audio/wav">
+        Your browser does not support the audio tag.
+    </audio>
 </div>
 
 <script>
@@ -139,6 +162,20 @@ TypeWriter
         asteroid.style.display = "inline-block";
     })
     .start();
+
+
+  // Espera o usuário clicar em qualquer lugar na página
+
+    const bgMusic = document.getElementById('bgMusic');
+
+    // Espera o usuário clicar em qualquer lugar na página
+    window.addEventListener('click', () => {
+        bgMusic.muted = false;
+        bgMusic.play().catch(e => {
+            console.log("Falha ao iniciar o áudio:", e);
+        });
+    }, { once: true });
+
 </script>
 
 </body>

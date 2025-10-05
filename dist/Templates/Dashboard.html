@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asteroids & NEOs - GALACTICOS</title>
+  <link rel="icon" href="{{ url_for('static', filename='imgs/logo.jpeg') }}" type="image/x-icon">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #0d0d0d;
+      color: #f1f1f1;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+      font-size: 1.8em;
+      color: #5CE1E6;
+      background: #111;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .content {
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+    h2 {
+      color: #5CE1E6;
+      margin-top: 30px;
+    }
+    p {
+      font-size: 1.1em;
+      margin-bottom: 20px;
+    }
+    .chart {
+      margin: 40px 0;
+    }
+    .btn-back {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #5CE1E6;
+      color: #000;
+      text-decoration: none;
+      font-weight: bold;
+      border-radius: 8px;
+    }
+    .btn-back:hover {
+      background: #4bb8ba;
+    }
+  </style>
+</head>
+<body>
+
+  <header>Asteroids & NEOs Analysis</header>
+
+  <div class="content">
+    <h2>What are NEOs?</h2>
+    <p>Near-Earth Objects (NEOs) are asteroids and comets whose orbits bring them close to Earth. About <b>99%</b> of them are asteroids.</p>
+    
+    <h2>Why do they matter?</h2>
+    <p>Some large NEOs are classified as <b>Potentially Hazardous Asteroids (PHAs)</b> if they pass within 7.5 million km of Earth’s orbit.</p>
+
+    <!-- Gráfico 1 -->
+    <div id="chart1" class="chart"></div>
+
+    <!-- Gráfico 2 -->
+    <div id="chart2" class="chart"></div>
+
+    <a href="{{ url_for('welcome') }}" class="btn-back">⬅ Back to Home</a>
+  </div>
+
+  <script>
+    // ===== Example Chart 1: Distribuição de NEOs por tamanho =====
+    var trace1 = {
+      x: ["<50m", "50-140m", "140-300m", ">300m"],
+      y: [1200, 800, 300, 50],
+      type: "bar",
+      marker: {color: "#5CE1E6"}
+    };
+    var layout1 = {
+      title: "NEOs by Size",
+      paper_bgcolor: "#0d0d0d",
+      plot_bgcolor: "#0d0d0d",
+      font: {color: "#fff"},
+      xaxis: {title: "Diameter"},
+      yaxis: {title: "Count"}
+    };
+    Plotly.newPlot("chart1", [trace1], layout1);
+
+    // ===== Example Chart 2: Distância mínima x Velocidade =====
+    var trace2 = {
+      x: [20, 50, 100, 200, 400],
+      y: [15, 20, 12, 18, 22],
+      mode: "markers+lines",
+      marker: {size: 10, color: "#FF4C4C"},
+      line: {dash: "dot"}
+    };
+    var layout2 = {
+      title: "Min Distance (×1000 km) vs Speed (km/s)",
+      paper_bgcolor: "#0d0d0d",
+      plot_bgcolor: "#0d0d0d",
+      font: {color: "#fff"},
+      xaxis: {title: "Distance (×1000 km)"},
+      yaxis: {title: "Speed (km/s)"}
+    };
+    Plotly.newPlot("chart2", [trace2], layout2);
+  </script>
+
+</body>
+</html>

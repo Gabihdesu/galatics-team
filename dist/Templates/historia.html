@@ -4,9 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Asteroids — GALACTICOS</title>
-<link rel="icon" href="{{ url_for('static', filename='imgs/logo.jpeg') }}" type="image/x-icon">
+<link rel="icon" href="../static/imgs/Logo_branco.webp" type="image/x-icon">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
   :root{
     --bg-1: #030313;
@@ -132,6 +132,10 @@
     font-size:1.1rem;
   }
 
+  h3 {
+    color:#ffffff;
+  }
+
   p {
     margin:8px 0;
     color:#d6e9ef;
@@ -194,8 +198,28 @@
     .page{ margin:18px; padding:18px;}
   }
 
+  /* --- NOVA SEÇÃO DE VÍDEO E IMAGEM --- */
+  .media-section {
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-top:16px;
+  }
+
+  .media-section > div {
+    flex:1 1 480px;
+    min-width:280px;
+  }
+
+  .media-section video,
+  .media-section img {
+    width:100%;
+    border-radius:12px;
+  }
+
 </style>
 </head>
+
 <body>
 
   <!-- animated stars layer -->
@@ -204,7 +228,7 @@
   <main class="page" role="main">
     <header class="site-header">
       <div class="brand" aria-hidden="false">
-        <img src="{{ url_for('static', filename='imgs/logo.jpeg') }}" alt="GALACTICOS logo">
+        <img src="../static/imgs/Logo.webp" alt="GALACTICOS logo">
         <div>
           <h1>Asteroids, Meteors & Impacts</h1>
           <div class="subtitle">Understanding small bodies and their effects on Earth</div>
@@ -213,7 +237,8 @@
 
       <nav class="actions" aria-label="Site actions">
         <a class="btn" href="/">← Back to Mission</a>
-        <a class="btn ghost" href="#interactive">Open Interactive Tool</a>
+        <a class="btn ghost" href="{{ url_for('simulador') }}">Open Interactive Tool</a>
+        <a class="btn ghost" href="{{ url_for('equipe') }}">About the Team</a>
       </nav>
     </header>
 
@@ -224,6 +249,12 @@
         Most asteroids orbit the Sun in the main belt between Mars and Jupiter. Sizes range from Vesta (~530 km diameter) down to bodies less than 10 meters across.
         The combined mass of all asteroids is smaller than the Moon.
       </p>
+
+      <!-- graphs  -->
+      <div id="overview-charts" style="margin-top:30px;">
+        <div id="chart1" style="width:100%;height:400px;"></div>
+        <div id="chart2" style="width:100%;height:400px;margin-top:20px;"></div>
+      </div>
 
       <div class="two-col" style="margin-top:10px;">
         <div>
@@ -254,6 +285,20 @@
           </p>
         </div>
       </div>
+
+      <!-- NOVA SEÇÃO DE VÍDEO E IMAGEM -->
+      <div class="media-section">
+        <div class="video-asteroid">
+          <video controls>
+            <source src="../static/vídeos/cometa.webm" type="video/webm">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <div class="image-meteoro">
+          <img src="../static/imgs/Meteoro - Nasa.png" alt="Imagem de um meteoro no céu estrelado"/>
+        </div>
+      </div>
+
     </section>
 
     <section class="card" aria-labelledby="impactor-title">
@@ -283,8 +328,7 @@
       </ul>
 
       <div class="cta">
-        <!-- placeholder: connect this to your actual visualization route -->
-        <a class="btn" href="/index.html">Launch Simulation</a>
+        <a class="btn" href="{{ url_for('simulador') }}">Launch Simulation</a>
         <a class="btn ghost" href="#howto">How to use</a>
       </div>
     </section>
@@ -312,7 +356,6 @@
 <script>
   // create layered moving stars with different speeds and sizes (parallax effect)
   const starsEl = document.getElementById('stars');
-
   function createStar({left, top, size, duration, delay, opacity, layer}) {
     const s = document.createElement('div');
     s.className = 'star';
@@ -323,16 +366,12 @@
     s.style.opacity = opacity;
     s.style.animationDuration = duration + 's';
     s.style.animationDelay = delay + 's';
-    // give slight blur for distant stars
     if(layer === 3) s.style.filter = 'blur(0.8px)';
     starsEl.appendChild(s);
   }
-
-  // generate stars with three depth layers
   const W = window.innerWidth;
   const H = window.innerHeight;
   const total = 160;
-
   for(let i=0;i<total;i++){
     const layer = (i%3)+1;
     const size = layer===1 ? (Math.random()*1.6 + 0.6) : layer===2 ? (Math.random()*2.2 + 1.2) : (Math.random()*3 + 2);
@@ -343,13 +382,18 @@
     const opacity = 0.5 + Math.random()*0.6;
     createStar({left, top, size, duration, delay, opacity, layer});
   }
-
-  // handle resize to keep experience reasonable (simple reload for layout)
-  window.addEventListener('resize', () => {
-    // optional: better handling could reposition stars without reload
-    // location.reload();
-  });
 </script>
 
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<script>
+  var trace1 = { x: ["<50m", "50-140m", "140-300m", ">300m"], y: [1200, 800, 300, 50], type: "bar", marker: { color: "#5CE1E6" } };
+  var layout1 = { title: "NEOs by Size", paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { color: "#e6eef2" }, xaxis: { title: "Diameter" }, yaxis: { title: "Count" } };
+  Plotly.newPlot("chart1", [trace1], layout1);
+
+  var trace2 = { x: [20, 50, 100, 200, 400], y: [15, 20, 12, 18, 22], mode: "markers+lines", marker: { size: 10, color: "#FF4C4C" }, line: { dash: "dot" } };
+  var layout2 = { title: "Min Distance (×1000 km) vs Speed (km/s)", paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: { color: "#e6eef2" }, xaxis: { title: "Distance (×1000 km)" }, yaxis: { title: "Speed (km/s)" } };
+  Plotly.newPlot("chart2", [trace2], layout2);
+</script>
 </body>
 </html>
