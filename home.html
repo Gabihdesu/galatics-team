@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://unpkg.com/typewriter-effect@latest/dist/core.js"></script>
 <title>GALACTICOS - Earth's Defense</title>
-<link rel="icon" href="../static/imgs/Logo_branco.webp" type="image/x-icon">
+<link rel="icon" href="./static/imgs/Logo_branco.webp" type="image/x-icon">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap');
 
@@ -24,7 +24,6 @@ body {
     position: relative;
 }
 
-/* ===== Starry Background ===== */
 #stars {
     position: absolute;
     width: 100%;
@@ -61,7 +60,6 @@ body {
     text-shadow: 0 0 8px #5CE1E6, 0 0 12px #5CE1E6;
 }
 
-/* ===== Fade-in for asteroid ===== */
 .asteroid-button img {
     position: absolute;
     top: -150px;
@@ -75,21 +73,9 @@ body {
 }
 
 @keyframes fall {
-    0% {
-        top: -200px;
-        transform: translateX(-50%) rotate(0deg) scale(0.8);
-        opacity: 0;
-    }
-    50% {
-        top: 70%;
-        transform: translateX(-50%) rotate(15deg) scale(1);
-        opacity: 1;
-    }
-    100% {
-        top: 100%;
-        transform: translateX(-50%) rotate(-10deg) scale(1);
-        opacity: 1;
-    }
+    0% { top: -200px; transform: translateX(-50%) rotate(0deg) scale(0.8); opacity: 0; }
+    50% { top: 70%; transform: translateX(-50%) rotate(15deg) scale(1); opacity: 1; }
+    100% { top: 100%; transform: translateX(-50%) rotate(-10deg) scale(1); opacity: 1; }
 }
 
 .asteroid-button img:hover {
@@ -97,7 +83,6 @@ body {
     transition: transform 0.3s ease;
 }
 
-/* Loading message */
 #loadingMessage {
     position: absolute;
     top: 50%;
@@ -113,16 +98,31 @@ body {
 }
 
 @keyframes pulse {
-    from {
-        opacity: 0.7;
-        transform: translate(-50%, -50%) scale(1);
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1.05);
-    }
+    from { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
 }
 
+.btn-container {
+    margin-top: 250px;
+    position: relative;
+    z-index: 4;
+}
+
+.btn {
+    display: inline-block;
+    margin: 10px;
+    padding: 10px 20px;
+    color: #000;
+    background-color: #5CE1E6;
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+
+.btn:hover {
+    background-color: #42bfcf;
+}
 </style>
 </head>
 <body>
@@ -132,15 +132,21 @@ body {
 
 <div class="container">
     <div id="text"></div>
-    <!-- Clickable asteroid -->
     <div class="asteroid-button">
-        <img id="asteroid" src="../static/imgs/AsterideNasa.png" alt="Asteroid Impactor 2025">
+        <img id="asteroid" src="./static/imgs/AsterideNasa.png" alt="Asteroid Impactor 2025">
     </div>
-    
+
     <audio id="bgMusic">
-        <source src="../static/audio/mayday.wav" type="audio/wav">
+        <source src="./static/audio/mayday.wav" type="audio/wav">
         Your browser does not support the audio tag.
     </audio>
+
+    <!-- Botões de navegação -->
+    <div class="btn-container" id="btn-container">
+        <a class="btn" href="./simulator.html">Impactor-2025</a>
+        <a class="btn" href="./history.html">Learn</a>
+        <a class="btn" href="./game.html">Defending Earth !</a>
+    </div>
 </div>
 
 <script>
@@ -164,8 +170,6 @@ for (let i = 0; i < starCount; i++) {
 // ===== Typewriter text =====
 var text = document.getElementById('text');
 var asteroid = document.getElementById('asteroid');
-var bgMusic = document.getElementById('bgMusic');
-var loadingMessage = document.getElementById('loadingMessage');
 
 var TypeWriter = new Typewriter(text, {
     loop: false,
@@ -181,57 +185,11 @@ TypeWriter
     .pauseFor(500)
     .typeString('<br>A threat approaches: the asteroid <span style="color:#FF4C4C; font-weight:bold; text-shadow: 0 0 10px red;">Impactor 2025</span>.')
     .pauseFor(500)
-    .typeString('<br>Get ready for our mission! Click the asteroid to start defending Earth.')
+    .typeString('<br>Get ready for our mission! Click to navigate.')
     .callFunction(() => {
         asteroid.style.display = "inline-block";
     })
     .start();
-
-// ===== Clique no asteroide =====
-asteroid.addEventListener('click', function(e) {
-    e.preventDefault();
-    
-    // Mostra mensagem de loading
-    loadingMessage.style.display = 'block';
-    
-    // Esconde o texto e o asteroide
-    text.style.display = 'none';
-    asteroid.style.display = 'none';
-    
-    // Toca o áudio
-    bgMusic.play().catch(error => {
-        console.log("Error while loading video:", error);
-    });
-    
-    // Quando o áudio terminar, redireciona para a próxima página
-    bgMusic.addEventListener('ended', function() {
-        // Adiciona um pequeno delay antes de redirecionar
-        setTimeout(function() {
-            // Redireciona para a próxima página
-            window.location.href = "{{ url_for('video') }}";
-            
-        }, 500);
-    });
-    
-    // Fallback: se após 30 segundos o áudio não terminar, redireciona mesmo assim
-    setTimeout(function() {
-        if (!bgMusic.ended) {
-            console.log("Fallback: redirecting after timeout");
-            window.location.href = "{{ url_for('video') }}"; 
-        }
-    }, 30000); // 30 segundos de timeout
-});
-
-// Permite iniciar o áudio com clique em qualquer lugar (fallback)
-window.addEventListener('click', function() {
-    // Tenta iniciar o áudio se ainda não estiver tocando
-    if (bgMusic.paused) {
-        bgMusic.play().catch(error => {
-            console.log("Audio could not be started:", error);
-        });
-    }
-}, { once: true });
-
 </script>
 
 </body>

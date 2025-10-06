@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Asteroids — GALACTICOS</title>
-<link rel="icon" href="../static/imgs/Logo_branco.webp" type="image/x-icon">
+<link rel="icon" href="./static/imgs/Logo_branco.webp" type="image/x-icon">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
@@ -228,7 +228,7 @@
   <main class="page" role="main">
     <header class="site-header">
       <div class="brand" aria-hidden="false">
-        <img src="../static/imgs/Logo.webp" alt="GALACTICOS logo">
+        <img src="./static/imgs/Logo.webp" alt="GALACTICOS logo">
         <div>
           <h1>Asteroids, Meteors & Impacts</h1>
           <div class="subtitle">Understanding small bodies and their effects on Earth</div>
@@ -237,8 +237,8 @@
 
       <nav class="actions" aria-label="Site actions">
         <a class="btn" href="/">← Back to Mission</a>
-        <a class="btn ghost" href="{{ url_for('simulator')}}">Open Interactive Tool</a>
-        <a class="btn ghost" href="{{ url_for('team') }}">About the Team</a>
+        <a class="btn ghost" href="./simulator.html">Open Interactive Tool</a>
+        <a class="btn ghost" href="./team.html">About the Team</a>
       </nav>
     </header>
 
@@ -290,12 +290,12 @@
       <div class="media-section">
         <div class="video-asteroid">
           <video controls>
-            <source src="../static/vídeos/cometa.webm" type="video/webm">
+            <source src="./static/vídeos/cometa.webm" type="video/webm">
             Your browser does not support the video tag.
           </video>
         </div>
         <div class="image-meteoro">
-          <img src="../static/imgs/Meteoro - Nasa.png" alt="Imagem de um meteoro no céu estrelado"/>
+          <img src="./static/imgs/Meteoro - Nasa.png" alt="Imagem de um meteoro no céu estrelado"/>
         </div>
       </div>
 
@@ -328,7 +328,7 @@
       </ul>
 
       <div class="cta">
-        <a class="btn" href="{{url_for('simulator')}}">Launch Simulation</a>
+        <a class="btn" href="./simulator.html">Launch Simulation</a>
         <a class="btn ghost" href="#howto">How to use</a>
       </div>
     </section>
