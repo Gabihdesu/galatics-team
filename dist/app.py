@@ -11,18 +11,25 @@ def home():
 def video():
     return render_template('video.html')
 
-@app.route('/historia')
-def historia():
-    return render_template('historia.html')
+@app.route('/history')
+def history():
+    return render_template('history.html')
 
-@app.route('/simulador')
-def simulador():
-    return render_template('simulador.html')
+@app.route('/simulator')
+def simulator():
+    return render_template('simulator.html')
 
-@app.route('/equipe')
-def equipe():
-    return render_template('equipe.html')
+@app.route('/team')
+def team():
+    return render_template('team.html')
 
+@app.route('/game')
+def game():
+    return render_template('game.html')
+
+@app.route('/3D-glob')
+def globe():
+    return render_template('3D-glob.html')
 
 
 if __name__ == '__main__':

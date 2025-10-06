@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asteroid Impact Simulator — Professional Edition</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+body { background-color: #0f172a; color: #f1f5f9; font-family: "Inter", sans-serif; }
+#map { height: 100vh; width: 100%; }
+.panel-scroll { max-height: calc(100vh - 40px); overflow-y: auto; padding-right: 6px; }
+.panel-scroll::-webkit-scrollbar { width: 6px; }
+.panel-scroll::-webkit-scrollbar-track { background: #121821; }
+.panel-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+.control-section { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #334155; }
+.control-section:last-child { border-bottom: none; margin-bottom: 0; }
+.slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: #475569; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #f59e0b; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
+.slider::-moz-range-thumb { width: 16px; height: 16px; background: #f59e0b; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
+.glow { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+.earthquake-zone { stroke-dasharray: 5,5; }
+</style>
+</head>
+<body>
+<div id="root" class="h-screen"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// Coloque aqui sua NASA API KEY (substitua abaixo)
+const NASA_API_KEY = "DEMO_KEY"; // Use DEMO_KEY para testes
+
+// --- Helper: compute energy, mass, effects
+function computeMassAndEnergy(diameter, velocity, densityType){
+  const densityMap = { Icy: 1000, Carbonaceous: 2200, Rocky: 3000, Iron: 7800 };
+  const r = diameter/2;
+  const volume = 4/3*Math.PI*r*r*r;
+  const density = densityMap[densityType] || 3000;
+  const mass = volume*density;
+  const energyJ = 0.5*mass*(velocity*1000)**2;
+  return { mass, energyMegatons: energyJ/4.184e15 };
+}
+
+function estimateCraterDiameter(energy, angle){
+  const effEnergy = energy * Math.sin(angle*Math.PI/180);
+  return 70*Math.pow(effEnergy,0.294); // simplified, km
+}
+
+// Função para calcular todos os detalhes e efeitos
+function calculateImpactDetails(diameter, velocity, densityType, angleDegrees, defenseMethod = null) {
+  const densityMap = { Icy: 1000, Carbonaceous: 2200, Rocky: 3000, Iron: 7800 };
+  const density = densityMap[densityType] || 3000;
+
+  const r = diameter / 2; // em metros
+  const volume = (4 / 3) * Math.PI * r ** 3; // m³
+  const mass = volume * density; // kg
+
+  const velocity_mps = velocity * 1000; // km/s para m/s
+  const energyJ = 0.5 * mass * velocity_mps ** 2; // Joules
+  const energyMT = energyJ / 4.184e15; // megatons
+
+  // Energia efetiva baseada no ângulo
+  let effEnergyMT = energyMT * Math.sin(angleDegrees * Math.PI / 180);
+
+  // Redução da energia pelo método de defesa
+  const defenseEfficiency = {
+    "Laser": 0.30,
+    "Impactador Cinético": 0.50,
+    "Trator Gravitacional": 0.20,
+    "Gravity tractor": 0.20,
+    null: 0,
+    undefined: 0,
+  };
+
+  const reduction = defenseEfficiency[defenseMethod] || 0;
+  effEnergyMT = effEnergyMT * (1 - reduction);
+
+  const craterDiameter = 70 * Math.pow(effEnergyMT, 0.294); // km
+
+  const earthquakeMag = (2 / 3) * Math.log10(energyJ) - 3.2;
+
+  const fireballRadius = 17.5 * Math.pow(effEnergyMT, 0.4); // km
+
+  // Calcular raio de efeito do terremoto baseado na magnitude
+  const earthquakeRadius = calculateEarthquakeRadius(earthquakeMag);
+
+  return {
+    mass,
+    energyMT,
+    effEnergyMT,
+    craterDiameter,
+    earthquakeMag,
+    fireballRadius,
+    earthquakeRadius,
+    reductionPercent: (reduction * 100).toFixed(0),
+  };
+}
+
+// Função para calcular o raio do efeito do terremoto
+function calculateEarthquakeRadius(magnitude) {
+  // Fórmula aproximada baseada em dados sismológicos
+  if (magnitude < 4.0) return 10; // km
+  if (magnitude < 5.0) return 50;
+  if (magnitude < 6.0) return 100;
+  if (magnitude < 7.0) return 200;
+  if (magnitude < 8.0) return 500;
+  return 1000; // km para magnitudes >= 8.0
+}
+
+// Função para buscar dados de zonas sísmicas do USGS
+async function fetchUSGSEarthquakeZones(lat, lon, radiusKm = 1000) {
+  try {
+    // API do USGS para terremotos históricos - usamos para mostrar zonas de risco
+    const days = 30; // últimos 30 dias
+    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=${radiusKm}&starttime=${getPastDate(days)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Erro ao buscar dados do USGS");
+    
+    const data = await response.json();
+    return data.features || [];
+  } catch (error) {
+    console.error("Erro ao buscar dados sísmicos:", error);
+    return [];
+  }
+}
+
+// Função auxiliar para calcular data passada
+function getPastDate(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
+// Função para buscar asteroides da API NASA NeoWs (feed do dia atual)
+async function fetchAsteroids(apiKey) {
+  const today = new Date().toISOString().split('T')[0]; // yyyy-mm-dd
+  const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("Erro ao buscar asteroides");
+    const data = await res.json();
+    const asteroidsObj = data.near_earth_objects[today];
+    return asteroidsObj || [];
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
+// --- Controls Panel
+function Controls({ params, setParams, simulate, toggleSim, asteroids, setParamsFromAsteroid, resetSimulation }) {
+  const impactDetails = calculateImpactDetails(params.diameter, params.velocity, params.density, params.angle, params.defenseMethod);
+  
+  return (
+    <aside className="w-96 p-5 bg-slate-800 panel-scroll shadow-xl">
+      <h1 className="text-2xl font-bold mb-2 text-blue-500">Asteroid Impact Simulator</h1>
+
+      {/* Status da Simulação */}
+      {simulate && (
+        <div className="mb-4 p-3 bg-red-900 rounded-lg border border-red-500">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+            <span className="font-bold text-red-200">SIMULAÇÃO ATIVA</span>
+          </div>
+        </div>
+      )}
+
+      {/* Dropdown para escolher asteroide */}
+      <div className="mb-4">
+        <label className="block mb-1">Escolha um Asteroide da NASA</label>
+        <select 
+          className="w-full p-2 rounded bg-slate-700 text-white"
+          onChange={e => {
+            const id = e.target.value;
+            const asteroid = asteroids.find(a => a.id === id);
+            if(asteroid) setParamsFromAsteroid(asteroid);
+          }}
+          value={params.nasaId || ""}
+        >
+          <option value="">-- Nenhum selecionado --</option>
+          {asteroids.map(a => (
+            <option key={a.id} value={a.id}>
+              {a.name} - {Math.round(a.estimated_diameter.meters.estimated_diameter_max)} m
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="control-section">
+        <div className="mb-4">
+          <label className="block text-sm mb-1">Diameter ({params.diameter} m)</label>
+          <input type="range" min="50" max="2000" value={params.diameter} 
+            onChange={e=>setParams({...params, diameter:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm mb-1">Velocity ({params.velocity} km/s)</label>
+          <input type="range" min="5" max="80" step="0.1" value={params.velocity} 
+            onChange={e=>setParams({...params, velocity:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm mb-1">Angle ({params.angle}°)</label>
+          <input type="range" min="5" max="90" value={params.angle} 
+            onChange={e=>setParams({...params, angle:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          {["Icy","Carbonaceous","Rocky","Iron"].map(type=>(
+            <button key={type} className={`p-3 rounded ${params.density===type?'bg-amber-500 text-white glow':'bg-slate-700'}`}
+              onClick={()=>setParams({...params, density:type, nasaId: ""})}>{type}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="control-section">
+        <label className="block mb-1">Mitigation Scenarios (deflection)</label>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+            {["Laser", "Gravity tractor"].map(method => (
+            <button key={method}
+                className={`p-3 rounded ${params.defenseMethod === method ? 'bg-green-500 text-white glow' : 'bg-slate-700'}`}
+                onClick={() => setParams({...params, defenseMethod: method, nasaId: ""})}>
+                {method}
+            </button>
+            ))}
+            <button 
+              className={`p-3 rounded ${!params.defenseMethod ? 'bg-green-500 text-white glow' : 'bg-slate-700'}`}
+              onClick={() => setParams({...params, defenseMethod: null, nasaId: ""})}>
+              None
+            </button>
+        </div>
+      </div>
+
+      {/* Resultados da Simulação */}
+      <div className="control-section">
+        <h3 className="font-bold mb-2 text-amber-400">Impact Results</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span>Energy:</span>
+            <span className="font-mono">{impactDetails.energyMT.toFixed(0)} MT</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Effective Energy:</span>
+            <span className="font-mono">{impactDetails.effEnergyMT.toFixed(0)} MT</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Crater Diameter:</span>
+            <span className="font-mono">{impactDetails.craterDiameter.toFixed(2)} km</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Earthquake Magnitude:</span>
+            <span className="font-mono">{impactDetails.earthquakeMag.toFixed(1)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Defense Reduction:</span>
+            <span className="font-mono">{impactDetails.reductionPercent}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        <button className={`py-3 font-bold rounded ${simulate?'bg-red-600':'bg-green-600'}`} onClick={toggleSim}>
+          {simulate?'Stop Simulation':'Launch Simulation'}
+        </button>
+        <button className="py-3 font-bold rounded bg-blue-600 hover:bg-blue-700" onClick={resetSimulation}>
+          Reset Simulation
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// --- Map
+function ImpactMap({ params, simulate }) {
+  const mapRef = useRef(null);
+  const impactMarkerRef = useRef(null);
+  const impactCircleRef = useRef(null);
+  const earthquakeZoneRef = useRef(null);
+  const popupRef = useRef(null);
+  const [earthquakeData, setEarthquakeData] = useState([]);
+  const [impactLocation, setImpactLocation] = useState(null);
+
+  useEffect(() => {
+    if (!mapRef.current) {
+      mapRef.current = L.map('map', { preferCanvas: true }).setView([0, 0], 2);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles © Esri', maxZoom: 18 }
+      ).addTo(mapRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (simulate && mapRef.current) {
+      const lat = -15 + Math.random() * 10;
+      const lon = -35 + Math.random() * 10;
+      setImpactLocation({ lat, lon });
+
+      // Buscar dados sísmicos da região
+      fetchUSGSEarthquakeZones(lat, lon, 1000).then(data => {
+        setEarthquakeData(data);
+      });
+
+      const {
+        energyMT,
+        effEnergyMT,
+        craterDiameter,
+        earthquakeMag,
+        fireballRadius,
+        earthquakeRadius,
+        reductionPercent,
+      } = calculateImpactDetails(params.diameter, params.velocity, params.density, params.angle, params.defenseMethod);
+
+      const methodText = params.defenseMethod ? params.defenseMethod : "Nenhum";
+
+      // Limpar layers anteriores
+      [impactMarkerRef.current, impactCircleRef.current, earthquakeZoneRef.current].forEach(layer => {
+        if (layer) layer.remove();
+      });
+
+      // Marcador do impacto
+      impactMarkerRef.current = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(mapRef.current);
+
+      // Círculo da cratera
+      impactCircleRef.current = L.circle([lat, lon], {
+        radius: craterDiameter * 1000 / 2,
+        color: 'red',
+        fillColor: 'red',
+        fillOpacity: 0.3,
+        weight: 2,
+      }).addTo(mapRef.current);
+
+      // Zona de terremoto
+      earthquakeZoneRef.current = L.circle([lat, lon], {
+        radius: earthquakeRadius * 1000,
+        color: 'orange',
+        fillColor: 'orange',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '5,5',
+        className: 'earthquake-zone'
+      }).addTo(mapRef.current);
+
+      // Adicionar marcadores para terremotos históricos
+      earthquakeData.forEach(quake => {
+        const quakeCoords = quake.geometry.coordinates;
+        L.circleMarker([quakeCoords[1], quakeCoords[0]], {
+          radius: Math.max(2, quake.properties.mag),
+          color: 'yellow',
+          fillColor: 'yellow',
+          fillOpacity: 0.7,
+          weight: 1,
+        }).bindPopup(`
+          <strong>Earthquake M${quake.properties.mag.toFixed(1)}</strong><br/>
+          ${new Date(quake.properties.time).toLocaleDateString()}<br/>
+          Depth: ${quakeCoords[2].toFixed(1)} km
+        `).addTo(mapRef.current);
+      });
+
+      const popupContent = `
+        <div style="font-size: 14px; line-height: 1.3; color: #222;">
+          <strong>Impact Result</strong><br/>
+          Defense Method: <strong>${methodText}</strong><br/>
+          Energy Reduction: <strong>${reductionPercent}%</strong><br/>
+          Crater Diameter: ${craterDiameter.toFixed(2)} km<br/>
+          Fireball Radius: ${fireballRadius.toFixed(2)} km<br/>
+          Earthquake Magnitude: ${earthquakeMag.toFixed(2)}<br/>
+          Earthquake Radius: ${earthquakeRadius.toFixed(0)} km<br/>
+          Total Energy: ${energyMT.toFixed(0)} MT<br/>
+          Effective Energy: ${effEnergyMT.toFixed(0)} MT
+        </div>
+      `;
+
+      if (popupRef.current) {
+        popupRef.current.setContent(popupContent);
+        popupRef.current.setLatLng([lat, lon]);
+      } else {
+        popupRef.current = L.popup({
+          closeButton: false,
+          autoClose: false,
+          closeOnClick: false,
+          className: 'impact-popup',
+          offset: L.point(0, -10)
+        })
+          .setLatLng([lat, lon])
+          .setContent(popupContent)
+          .openOn(mapRef.current);
+      }
+
+      mapRef.current.setView([lat, lon], 5);
+    }
+  }, [simulate, params, earthquakeData]);
+
+  // Efeito para limpar o mapa quando a simulação parar
+  useEffect(() => {
+    if (!simulate && mapRef.current) {
+      [impactMarkerRef.current, impactCircleRef.current, earthquakeZoneRef.current].forEach(layer => {
+        if (layer) layer.remove();
+      });
+      if (popupRef.current) {
+        popupRef.current.remove();
+        popupRef.current = null;
+      }
+      setEarthquakeData([]);
+      setImpactLocation(null);
+    }
+  }, [simulate]);
+
+  return <div id="map" className="flex-1"></div>;
+}
+
+// --- App
+function App(){
+    const [params, setParams] = useState({
+        diameter: 350,
+        velocity: 18,
+        angle: 45,
+        density: 'Rocky',
+        nasaId: "",
+        defenseMethod: null,
+        });
+
+  const [simulate,setSimulate] = useState(false);
+  const [asteroids, setAsteroids] = useState([]);
+
+  // Atualiza params com dados do asteroide selecionado
+  function setParamsFromAsteroid(asteroid){
+    const diamMax = asteroid.estimated_diameter.meters.estimated_diameter_max;
+    const approach = asteroid.close_approach_data[0];
+    let velocity = approach ? parseFloat(approach.relative_velocity.kilometers_per_second) : 20;
+
+    setParams({
+      diameter: Math.round(diamMax),
+      velocity: Math.round(velocity*10)/10,
+      angle: 45,
+      density: 'Rocky',
+      nasaId: asteroid.id,
+      defenseMethod: params.defenseMethod,
+    });
+    setSimulate(false);
+  }
+
+  // Função para resetar a simulação
+  function resetSimulation() {
+    setSimulate(false);
+    setParams({
+      diameter: 350,
+      velocity: 18,
+      angle: 45,
+      density: 'Rocky',
+      nasaId: "",
+      defenseMethod: null,
+    });
+  }
+
+  useEffect(() => {
+    fetchAsteroids(NASA_API_KEY).then(data => {
+      setAsteroids(data || []);
+    });
+  }, []);
+
+  return (
+    <div className="flex h-screen">
+      <Controls 
+        params={params} 
+        setParams={setParams} 
+        simulate={simulate} 
+        toggleSim={()=>setSimulate(!simulate)} 
+        asteroids={asteroids} 
+        setParamsFromAsteroid={setParamsFromAsteroid}
+        resetSimulation={resetSimulation}
+      />
+      <ImpactMap params={params} simulate={simulate} />
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

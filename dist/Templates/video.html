@@ -73,33 +73,54 @@
         bottom: 20px;
         z-index: 2;
         display: none;
+        opacity: 0;
+        transition: opacity 1s ease-in-out;
+    }
+
+    .btn-container.show {
+        display: flex;
+        opacity: 1;
     }
 
     .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    text-decoration: none;
-    padding: 16px 24px; 
-    border-radius: 12px;
-    font-size: 1.2rem; 
-    font-weight: 600;
-    color: #e8edf1;
-    background: #073857;
-    box-shadow: 0 8px 24px rgba(92, 225, 230, 0.2);
-    border: #000
-    cursor: pointer;
-    transition: transform 0.2s ease;
-    margin: 25px;
-    
-}
-
-    .btn:hover {
-        transform: scale(1.05); /* Efeito de hover para destacar */
-        background: #5d9ec6;
-        
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        padding: 16px 24px; 
+        border-radius: 12px;
+        font-size: 1.2rem; 
+        font-weight: 600;
+        color: #e8edf1;
+        background: #073857;
+        box-shadow: 0 8px 24px rgba(92, 225, 230, 0.2);
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+        margin: 25px;
     }
 
+    .btn:hover {
+        transform: scale(1.05);
+        background: #5d9ec6;
+    }
+
+    /* Loading message */
+    .loading-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 3;
+        color: #5CE1E6;
+        font-size: 1.5em;
+        text-shadow: 0 0 10px #5CE1E6;
+        display: none;
+    }
+
+    .loading-message.show {
+        display: block;
+    }
 
   </style>
 </head>
@@ -109,14 +130,21 @@
   <div id="stars"></div>
 
   <div class="video-container">
-    <video id="intro-video" autoplay muted loop playsinline>
-      <source src="../static/vídeos/welcomes.mp4" type="video/mp4">
+    <!-- Loading message -->
+    <div class="loading-message" id="loadingMessage">LOADING MISSION DATA...</div>
+    
+    <!-- Video (sem autoplay e sem loop) -->
+    <video id="intro-video" playsinline>
+      <source src="../static/vídeos/news.mp4" type="video/mp4">
+      Your browser does not support the video tag.
     </video>
+    <p>"Created by AI"</p>
 
     <!-- Button container (hidden by default) -->
     <div class="btn-container" id="btn-container">
-        <a class="btn" href="{{ url_for('simulador') }}">Defending Earth !</a>
-        <a class="btn" href="{{ url_for('historia') }}">Learn</a>
+        <a class="btn" href="{{ url_for('simulator') }}">Impactor-2025</a>
+        <a class="btn" href="{{ url_for('history') }}">Learn</a>
+        <a class="btn" href="{{ url_for('game') }}">Defending Earth !</a>
     </div>
   </div>
 
@@ -124,23 +152,21 @@
     // Função para gerar as estrelas
     function generateStars() {
         const starContainer = document.getElementById('stars');
-        const numStars = 100; // Número de estrelas
+        const numStars = 100;
 
         for (let i = 0; i < numStars; i++) {
             const star = document.createElement('div');
             star.classList.add('star');
             
-            // Posições aleatórias para as estrelas
-            const size = Math.random() * 3 + 1; // Tamanho aleatório das estrelas
-            const posX = Math.random() * 100;  // Posição aleatória horizontal
-            const posY = Math.random() * 100;  // Posição aleatória vertical
+            const size = Math.random() * 3 + 1;
+            const posX = Math.random() * 100;
+            const posY = Math.random() * 100;
 
             star.style.width = `${size}px`;
             star.style.height = `${size}px`;
             star.style.left = `${posX}vw`;
             star.style.top = `${posY}vh`;
             
-            // Velocidade da animação aleatória
             const speed = Math.random() * 5 + 2;
             star.style.animationDuration = `${speed}s`;
 
@@ -148,24 +174,68 @@
         }
     }
 
-    // Função para exibir o botão quando o vídeo estiver prestes a acabar
-    function checkVideoEnd() {
+    // Função para controlar a reprodução do vídeo
+    function setupVideo() {
         const video = document.getElementById('intro-video');
         const btnContainer = document.getElementById('btn-container');
-        const videoDuration = video.duration;
-        const currentTime = video.currentTime;
+        const loadingMessage = document.getElementById('loadingMessage');
 
-        // Exibir o botão 10 segundos antes do vídeo acabar
-        if (videoDuration - currentTime <= 10) {
-            btnContainer.style.display = 'block';
-        }
+        // Mostra loading enquanto o vídeo carrega
+        loadingMessage.classList.add('show');
+
+        // Quando o vídeo estiver carregado o suficiente para reproduzir
+        video.addEventListener('canplaythrough', function() {
+            loadingMessage.classList.remove('show');
+            
+            // Inicia o vídeo (apenas uma vez)
+            video.play().catch(error => {
+                console.log("Erro ao reproduzir vídeo:", error);
+            });
+        });
+
+        // Quando o vídeo terminar
+        video.addEventListener('ended', function() {
+            // Mostra os botões com transição suave
+            btnContainer.classList.add('show');
+            
+            // Para garantir que o vídeo não reinicie
+            video.currentTime = video.duration - 0.1;
+        });
+
+        // Exibir botões quando faltar 10 segundos para acabar
+        video.addEventListener('timeupdate', function() {
+            if (video.duration - video.currentTime <= 10 && !btnContainer.classList.contains('show')) {
+                btnContainer.classList.add('show');
+            }
+        });
+
+        // Se houver erro no carregamento do vídeo
+        video.addEventListener('error', function() {
+            loadingMessage.classList.remove('show');
+            console.log("Erro ao carregar vídeo");
+            // Mostra os botões mesmo se o vídeo falhar
+            btnContainer.classList.add('show');
+        });
+
+        // Prevenir que o vídeo reinicie se alguém tentar dar play novamente
+        video.addEventListener('play', function() {
+            if (video.ended) {
+                video.pause();
+            }
+        });
     }
 
-    // Adicionar evento 'timeupdate' ao vídeo
-    document.getElementById('intro-video').addEventListener('timeupdate', checkVideoEnd);
+    // Inicialização
+    window.addEventListener('load', function() {
+        generateStars();
+        setupVideo();
+    });
 
-    // Gerar estrelas ao carregar a página
-    window.onload = generateStars;
+    // Prevenir comportamento padrão de contexto para o vídeo
+    document.getElementById('intro-video').addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+
   </script>
 
 </body>

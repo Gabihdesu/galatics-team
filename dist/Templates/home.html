@@ -62,23 +62,17 @@ body {
 }
 
 /* ===== Fade-in for asteroid ===== */
-@keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.8); }
-    to { opacity: 1; transform: scale(1); }
-}
-
 .asteroid-button img {
     position: absolute;
-    top: -150px; /* começa fora da tela */
+    top: -150px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 3;
-    width: 120px; /* tamanho do asteroide */
+    width: 120px;
     cursor: pointer;
-    animation: fall 3s ease-out forwards; /* animação de queda */
-    display: none; /* inicia escondido, será mostrado pelo typewriter */
+    animation: fall 3s ease-out forwards;
+    display: none;
 }
-
 
 @keyframes fall {
     0% {
@@ -98,9 +92,35 @@ body {
     }
 }
 
-.asteroid-button img {
-    transform: translateX(-50%) scale(1.2) rotate(15deg);
+.asteroid-button img:hover {
+    transform: translateX(-50%) scale(1.3) rotate(15deg);
     transition: transform 0.3s ease;
+}
+
+/* Loading message */
+#loadingMessage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    color: #5CE1E6;
+    font-size: 2em;
+    text-shadow: 0 0 15px #5CE1E6;
+    display: none;
+    text-align: center;
+    animation: pulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+    from {
+        opacity: 0.7;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+    }
 }
 
 </style>
@@ -108,14 +128,16 @@ body {
 <body>
 
 <div id="stars"></div>
+<div id="loadingMessage">LOADING MISSION...</div>
 
 <div class="container">
     <div id="text"></div>
     <!-- Clickable asteroid -->
-    <a href="{{ url_for('video') }}" class="asteroid-button">
-        <img id="asteroid" src="{{ url_for('static', filename='imgs/AsterideNasa.png') }}" alt="Asteroid Impactor 2025">
-    </a>
-    <audio id="bgMusic" autoplay loop muted>
+    <div class="asteroid-button">
+        <img id="asteroid" src="../static/imgs/AsterideNasa.png" alt="Asteroid Impactor 2025">
+    </div>
+    
+    <audio id="bgMusic">
         <source src="../static/audio/mayday.wav" type="audio/wav">
         Your browser does not support the audio tag.
     </audio>
@@ -134,14 +156,16 @@ for (let i = 0; i < starCount; i++) {
     star.style.height = `${size}px`;
     star.style.top = `${Math.random() * window.innerHeight}px`;
     star.style.left = `${Math.random() * window.innerWidth}px`;
-    star.style.animationDuration = `${Math.random() * 10 + 5}s`; // speed
-    star.style.animationDelay = `${Math.random() * 5}s`; // delay
+    star.style.animationDuration = `${Math.random() * 10 + 5}s`;
+    star.style.animationDelay = `${Math.random() * 5}s`;
     starsContainer.appendChild(star);
 }
 
 // ===== Typewriter text =====
 var text = document.getElementById('text');
 var asteroid = document.getElementById('asteroid');
+var bgMusic = document.getElementById('bgMusic');
+var loadingMessage = document.getElementById('loadingMessage');
 
 var TypeWriter = new Typewriter(text, {
     loop: false,
@@ -153,28 +177,60 @@ TypeWriter
     .pauseFor(500)
     .typeString('Hello, dear Earth inhabitant.')
     .pauseFor(500)
-    .typeString('<br>We are team <span style="color:#c74a34ff; font-weight:bold;">GALACTICOS</span> and we have come to defend the Earth.')
+    .typeString('<br>We are team <span style="color:#a0d1ffff; font-weight:bold;">GALACTICOS</span> and we have come to defend the Earth.')
     .pauseFor(500)
     .typeString('<br>A threat approaches: the asteroid <span style="color:#FF4C4C; font-weight:bold; text-shadow: 0 0 10px red;">Impactor 2025</span>.')
     .pauseFor(500)
-    .typeString('<br>Get ready for our mission! Click the asteroid below to start defending Earth.')
+    .typeString('<br>Get ready for our mission! Click the asteroid to start defending Earth.')
     .callFunction(() => {
         asteroid.style.display = "inline-block";
     })
     .start();
 
+// ===== Clique no asteroide =====
+asteroid.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    // Mostra mensagem de loading
+    loadingMessage.style.display = 'block';
+    
+    // Esconde o texto e o asteroide
+    text.style.display = 'none';
+    asteroid.style.display = 'none';
+    
+    // Toca o áudio
+    bgMusic.play().catch(error => {
+        console.log("Error while loading video:", error);
+    });
+    
+    // Quando o áudio terminar, redireciona para a próxima página
+    bgMusic.addEventListener('ended', function() {
+        // Adiciona um pequeno delay antes de redirecionar
+        setTimeout(function() {
+            // Redireciona para a próxima página
+            window.location.href = "{{ url_for('video') }}";
+            
+        }, 500);
+    });
+    
+    // Fallback: se após 30 segundos o áudio não terminar, redireciona mesmo assim
+    setTimeout(function() {
+        if (!bgMusic.ended) {
+            console.log("Fallback: redirecting after timeout");
+            window.location.href = "{{ url_for('video') }}"; 
+        }
+    }, 30000); // 30 segundos de timeout
+});
 
-  // Espera o usuário clicar em qualquer lugar na página
-
-    const bgMusic = document.getElementById('bgMusic');
-
-    // Espera o usuário clicar em qualquer lugar na página
-    window.addEventListener('click', () => {
-        bgMusic.muted = false;
-        bgMusic.play().catch(e => {
-            console.log("Falha ao iniciar o áudio:", e);
+// Permite iniciar o áudio com clique em qualquer lugar (fallback)
+window.addEventListener('click', function() {
+    // Tenta iniciar o áudio se ainda não estiver tocando
+    if (bgMusic.paused) {
+        bgMusic.play().catch(error => {
+            console.log("Audio could not be started:", error);
         });
-    }, { once: true });
+    }
+}, { once: true });
 
 </script>
 

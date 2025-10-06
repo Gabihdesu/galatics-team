@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="../static/imgs/Logo_branco.webp" type="image/x-icon">
-    <title>Defesa da Terra - Asteroid Defender</title>
+    <title>Earth Defense - Asteroid Defender</title>
 
     <style>
         * {
@@ -13,20 +13,23 @@
             box-sizing: border-box;
         }
 
-        body {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Orbitron', sans-serif;
-            background-color: #000;
-            color: #fff;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
+
+	body {
+    		margin: 0;
+    		padding: 0;
+    		box-sizing: border-box;
+    		font-family: 'Orbitron', sans-serif;
+    		background-color: #000;
+    		color: #fff;
+    		height: 100vh;
+   		overflow: hidden;
+    		display: flex;
+   		flex-direction: column; /* muda para coluna */
+    		align-items: center; /* mantém o conteúdo centralizado na horizontal */
+    		justify-content: flex-start; /* começa do topo da tela */
+    		position: relative;
+    		padding-top: 20px; /* dá um pequeno respiro no topo */
+	}
 
 
         /* ===== Starry Background ===== */

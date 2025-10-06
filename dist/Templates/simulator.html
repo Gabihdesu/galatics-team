@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Asteroid Impact Simulator — Professional Edition</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+body { background-color: #0f172a; color: #f1f5f9; font-family: "Inter", sans-serif; }
+#map { height: 100vh; width: 100%; }
+.panel-scroll { max-height: calc(100vh - 50px); overflow-y: auto; padding-right: 6px; }
+.panel-scroll::-webkit-scrollbar { width: 6px; }
+.panel-scroll::-webkit-scrollbar-track { background: #1e293b; }
+.panel-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+.control-section { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #334155; }
+.control-section:last-child { border-bottom: none; margin-bottom: 0; }
+.slider { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: #475569; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #f59e0b; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
+.slider::-moz-range-thumb { width: 16px; height: 16px; background: #f59e0b; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
+.glow { box-shadow: 0 0 15px rgba(245, 158, 11, 0.6); }
+.earthquake-zone { stroke-dasharray: 5,5; }
+.tsunami-zone { stroke-dasharray: 10,5; }
+.country-label { 
+  pointer-events: none; 
+  font-weight: 500;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+.tooltip-icon { 
+  display: inline-block; 
+  width: 16px; 
+  height: 16px; 
+  background: #3b82f6; 
+  color: white; 
+  border-radius: 50%; 
+  text-align: center; 
+  font-size: 12px; 
+  font-weight: bold; 
+  margin-left: 5px; 
+  cursor: help; 
+  line-height: 16px;
+}
+.educational-popup {
+  max-width: 300px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.neossat-orbit {
+  stroke-dasharray: 2,2;
+  animation: orbit 60s linear infinite;
+}
+@keyframes orbit {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 100; }
+}
+</style>
+</head>
+<body>
+<div id="root" class="h-screen"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// NASA API KEY (replace below)
+const NASA_API_KEY = "0SS0PYXqmPsZl3TNmnPeuZamAMRuWDlei826hy0T"; // Use DEMO_KEY for testing
+
+// --- Educational Content
+const educationalContent = {
+  eccentricity: {
+    title: "Orbital Eccentricity",
+    content: "Eccentricity measures how much an orbit deviates from a perfect circle. Values close to 0 indicate circular orbits, while values close to 1 indicate highly elliptical orbits. Asteroids with high eccentricity have more unpredictable orbits.",
+    examples: "• 0.0 = Perfect circular orbit<br>• 0.5 = Moderately elliptical orbit<br>• 0.9 = Highly elliptical orbit"
+  },
+  impactEnergy: {
+    title: "Impact Energy",
+    content: "The energy released on impact is calculated by the formula E=½mv², where m is mass and v is velocity. It's measured in megatons (MT), where 1 MT equals the energy of 1 million tons of TNT.",
+    comparison: "• Hiroshima: 0.015 MT<br>• Tsar Bomba: 50 MT<br>• Chicxulub: 100,000,000 MT"
+  },
+  inclination: {
+    title: "Orbital Inclination",
+    content: "The angle between the asteroid's orbital plane and the ecliptic plane (Earth's orbital plane). High inclinations make detection more difficult.",
+    ranges: "• 0°-10°: Low inclination<br>• 10°-30°: Moderate inclination<br>• 30°-90°: High inclination"
+  },
+  density: {
+    title: "Asteroid Density",
+    content: "Density affects mass and impact energy. Metallic asteroids are denser and cause more damage, while icy asteroids are less dense.",
+    types: "• Icy: 1000 kg/m³<br>• Carbonaceous: 2200 kg/m³<br>• Rocky: 3000 kg/m³<br>• Iron: 7800 kg/m³"
+  },
+  neossat: {
+    title: "NEO Surveyor (NeoSSat)",
+    content: "NASA space telescope dedicated to detecting near-Earth objects. Uses infrared to detect dark asteroids and provide early warnings of potential impacts.",
+    capabilities: "• Detects 140m+ objects<br>• 90% sky coverage<br>• Years of advance warning<br>• Earth orbit operation"
+  },
+  palermoScale: {
+    title: "Palermo Scale",
+    content: "Measures the impact risk of near-Earth objects. Combines impact probability and kinetic energy. Values above 0 indicate higher risk than natural background.",
+    levels: "• -2: Very low risk<br>• 0: Average risk<br>• +2: High risk<br>• +4: Extreme risk"
+  },
+  impactAngle: {
+    title: "Impact Angle",
+    content: "The angle at which the asteroid strikes Earth's surface. Shallow angles create more widespread damage, while steep angles create deeper craters.",
+    effects: "• 90°: Vertical impact (deep crater)<br>• 45°: Optimal energy transfer<br>• 15°: Shallow impact (widespread damage)"
+  },
+  defenseMethods: {
+    title: "Defense Methods",
+    content: "Techniques to deflect or destroy threatening asteroids before impact.",
+    methods: "• Laser: Vaporizes surface material<br>• Gravity Tractor: Uses gravitational pull<br>• Kinetic Impactor: Direct collision<br>• Nuclear: Disruption with explosives"
+  }
+};
+
+// --- Helper: compute energy, mass, effects
+function computeMassAndEnergy(diameter, velocity, densityType){
+  const densityMap = { Icy: 1000, Carbonaceous: 2200, Rocky: 3000, Iron: 7800 };
+  const r = diameter/2;
+  const volume = 4/3*Math.PI*r*r*r;
+  const density = densityMap[densityType] || 3000;
+  const mass = volume*density;
+  const energyJ = 0.5*mass*(velocity*1000)**2;
+  return { mass, energyMegatons: energyJ/4.184e15 };
+}
+
+// Function to calculate all impact details and effects
+function calculateImpactDetails(diameter, velocity, densityType, angleDegrees, defenseMethod = null) {
+  const densityMap = { Icy: 1000, Carbonaceous: 2200, Rocky: 3000, Iron: 7800 };
+  const density = densityMap[densityType] || 3000;
+
+  const r = diameter / 2; // in meters
+  const volume = (4 / 3) * Math.PI * r ** 3; // m³
+  const mass = volume * density; // kg
+
+  const velocity_mps = velocity * 1000; // km/s to m/s
+  const energyJ = 0.5 * mass * velocity_mps ** 2; // Joules
+  const energyMT = energyJ / 4.184e15; // megatons
+
+  // Effective energy based on angle
+  let effEnergyMT = energyMT * Math.sin(angleDegrees * Math.PI / 180);
+
+  // Energy reduction by defense method
+  const defenseEfficiency = {
+    "Laser": 0.30,
+    "Kinetic Impactor": 0.50,
+    "Gravity Tractor": 0.20,
+    null: 0,
+    undefined: 0,
+  };
+
+  const reduction = defenseEfficiency[defenseMethod] || 0;
+  effEnergyMT = effEnergyMT * (1 - reduction);
+
+  const craterDiameter = 70 * Math.pow(effEnergyMT, 0.294); // km
+
+  const earthquakeMag = (2 / 3) * Math.log10(energyJ) - 3.2;
+
+  const fireballRadius = 17.5 * Math.pow(effEnergyMT, 0.4); // km
+
+  // Calculate earthquake effect radius based on magnitude
+  const earthquakeRadius = calculateEarthquakeRadius(earthquakeMag);
+  
+  // Calculate tsunami zone (only for ocean impacts)
+  const tsunamiRadius = calculateTsunamiRadius(effEnergyMT, earthquakeMag);
+
+  // Calculate NEO Surveyor data
+  const neossatData = calculateNeoSSatData(diameter, velocity, energyMT);
+
+  return {
+    mass,
+    energyMT,
+    effEnergyMT,
+    craterDiameter,
+    earthquakeMag,
+    fireballRadius,
+    earthquakeRadius,
+    tsunamiRadius,
+    reductionPercent: (reduction * 100).toFixed(0),
+    neossatData
+  };
+}
+
+// Function to calculate NEO Surveyor data
+function calculateNeoSSatData(diameter, velocity, energyMT) {
+  // Simulate detection by NEO Surveyor
+  const detectionProbability = Math.min(0.95, diameter / 1000); // Probability based on size
+  const warningTime = diameter > 100 ? 10 : 2; // Years of advance warning
+  const palermoScale = calculatePalermoScale(energyMT, detectionProbability);
+  
+  return {
+    detectionProbability: (detectionProbability * 100).toFixed(1),
+    warningTime,
+    palermoScale: palermoScale.toFixed(2),
+    wouldDetect: detectionProbability > 0.3
+  };
+}
+
+// Function to calculate Palermo Scale
+function calculatePalermoScale(energyMT, probability) {
+  const backgroundRisk = 1e-8; // Annual background risk
+  const relativeRisk = probability / backgroundRisk;
+  return Math.log10(relativeRisk);
+}
+
+// Function to calculate earthquake effect radius
+function calculateEarthquakeRadius(magnitude) {
+  // Approximate formula based on seismological data
+  if (magnitude < 4.0) return 10; // km
+  if (magnitude < 5.0) return 50;
+  if (magnitude < 6.0) return 100;
+  if (magnitude < 7.0) return 200;
+  if (magnitude < 8.0) return 500;
+  return 1000; // km for magnitudes >= 8.0
+}
+
+// Function to calculate tsunami radius
+function calculateTsunamiRadius(energyMT, magnitude) {
+  if (magnitude < 6.5) return 0; // No significant tsunami
+  
+  // Based on energy and magnitude to estimate tsunami reach
+  const baseRadius = energyMT * 2; // km base
+  const magnitudeFactor = Math.max(0, magnitude - 6.5) * 100;
+  
+  return Math.min(baseRadius + magnitudeFactor, 2000); // Maximum 2000km
+}
+
+// Function to fetch USGS earthquake zone data
+async function fetchUSGSEarthquakeZones(lat, lon, radiusKm = 1000) {
+  try {
+    // USGS API for historical earthquakes - used to show risk zones
+    const days = 30; // last 30 days
+    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${lat}&longitude=${lon}&maxradiuskm=${radiusKm}&starttime=${getPastDate(days)}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Error fetching USGS data");
+    
+    const data = await response.json();
+    return data.features || [];
+  } catch (error) {
+    console.error("Error fetching seismic data:", error);
+    return [];
+  }
+}
+
+// Helper function to calculate past date
+function getPastDate(days) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+}
+
+// Function to fetch asteroids from NASA NeoWs API (today's feed)
+async function fetchAsteroids(apiKey) {
+  const today = new Date().toISOString().split('T')[0]; // yyyy-mm-dd
+  const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("Error fetching asteroids");
+    const data = await res.json();
+    const asteroidsObj = data.near_earth_objects[today];
+    return asteroidsObj || [];
+  } catch (e) {
+    console.error(e);
+    return [];
+  }
+}
+
+// Educational Tooltip Component
+function EducationalTooltip({ term, children }) {
+  const [showPopup, setShowPopup] = useState(false);
+
+  const handleClick = () => {
+    setShowPopup(!showPopup);
+  };
+
+  const content = educationalContent[term];
+
+  return (
+    <span className="relative inline-block">
+      {children}
+      <span 
+        className="tooltip-icon"
+        onClick={handleClick}
+        onMouseEnter={() => setShowPopup(true)}
+        onMouseLeave={() => setShowPopup(false)}
+      >
+        ?
+      </span>
+      
+      {showPopup && content && (
+        <div className="absolute z-50 bottom-full left-0 mb-2 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-4 educational-popup">
+          <h4 className="font-bold text-amber-400 mb-2">{content.title}</h4>
+          <p className="text-sm text-slate-200 mb-2">{content.content}</p>
+          {content.examples && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.examples}} />
+          )}
+          {content.comparison && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.comparison}} />
+          )}
+          {content.ranges && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.ranges}} />
+          )}
+          {content.types && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.types}} />
+          )}
+          {content.capabilities && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.capabilities}} />
+          )}
+          {content.levels && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.levels}} />
+          )}
+          {content.effects && (
+            <div className="text-xs text-slate-300 mb-2" dangerouslySetInnerHTML={{__html: content.effects}} />
+          )}
+          {content.methods && (
+            <div className="text-xs text-slate-300" dangerouslySetInnerHTML={{__html: content.methods}} />
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
+// --- Controls Panel
+function Controls({ params, setParams, simulate, toggleSim, asteroids, setParamsFromAsteroid, resetSimulation }) {
+  const impactDetails = calculateImpactDetails(params.diameter, params.velocity, params.density, params.angle, params.defenseMethod);
+  
+  return (
+    <aside className="w-96 p-5 bg-slate-800 panel-scroll shadow-xl">
+      <h1 className="text-2xl font-bold mb-2 text-blue-500">Asteroid Impact Simulator</h1>
+
+      {/* Simulation Status */}
+      {simulate && (
+        <div className="mb-4 p-3 bg-red-900 rounded-lg border border-red-500">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
+            <span className="font-bold text-red-200">SIMULATION ACTIVE</span>
+          </div>
+        </div>
+      )}
+
+      {/* Asteroid selection dropdown */}
+      <div className="mb-4">
+        <label className="block mb-1">
+          Select a NASA Asteroid
+          <EducationalTooltip term="eccentricity">
+            <span></span>
+          </EducationalTooltip>
+        </label>
+        <select 
+          className="w-full p-2 rounded bg-slate-700 text-white"
+          onChange={e => {
+            const id = e.target.value;
+            const asteroid = asteroids.find(a => a.id === id);
+            if(asteroid) setParamsFromAsteroid(asteroid);
+          }}
+          value={params.nasaId || ""}
+        >
+          <option value="">-- None selected --</option>
+          {asteroids.map(a => (
+            <option key={a.id} value={a.id}>
+              {a.name} - {Math.round(a.estimated_diameter.meters.estimated_diameter_max)} m
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="control-section">
+        <div className="mb-4">
+          <label className="block text-sm mb-1">
+            Diameter ({params.diameter} m)
+            <EducationalTooltip term="impactEnergy">
+              <span></span>
+            </EducationalTooltip>
+          </label>
+          <input type="range" min="50" max="2000" value={params.diameter} 
+            onChange={e=>setParams({...params, diameter:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm mb-1">
+            Velocity ({params.velocity} km/s)
+            <EducationalTooltip term="impactEnergy">
+              <span></span>
+            </EducationalTooltip>
+          </label>
+          <input type="range" min="5" max="80" step="0.1" value={params.velocity} 
+            onChange={e=>setParams({...params, velocity:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm mb-1">
+            Impact Angle ({params.angle}°)
+            <EducationalTooltip term="impactAngle">
+              <span></span>
+            </EducationalTooltip>
+          </label>
+          <input type="range" min="5" max="90" value={params.angle} 
+            onChange={e=>setParams({...params, angle:+e.target.value, nasaId: ""})} className="slider w-full"/>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm mb-1">
+            Density Type
+            <EducationalTooltip term="density">
+              <span></span>
+            </EducationalTooltip>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {["Icy","Carbonaceous","Rocky","Iron"].map(type=>(
+              <button key={type} className={`p-3 rounded ${params.density===type?'bg-amber-500 text-white glow':'bg-slate-700'}`}
+                onClick={()=>setParams({...params, density:type, nasaId: ""})}>{type}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="control-section">
+        <label className="block mb-1">
+          Mitigation Scenarios
+          <EducationalTooltip term="defenseMethods">
+            <span></span>
+          </EducationalTooltip>
+        </label>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+            {["Laser", "Kinetic Impactor", "Gravity Tractor"].map(method => (
+            <button key={method}
+                className={`p-3 rounded ${params.defenseMethod === method ? 'bg-green-500 text-white glow' : 'bg-slate-700'}`}
+                onClick={() => setParams({...params, defenseMethod: method, nasaId: ""})}>
+                {method}
+            </button>
+            ))}
+            <button 
+              className={`p-3 rounded ${!params.defenseMethod ? 'bg-green-500 text-white glow' : 'bg-slate-700'}`}
+              onClick={() => setParams({...params, defenseMethod: null, nasaId: ""})}>
+              None
+            </button>
+        </div>
+      </div>
+
+
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        <button className={`py-3 font-bold rounded ${simulate?'bg-red-600':'bg-green-600'}`} onClick={toggleSim}>
+          {simulate?'Stop Simulation':'Launch Simulation'}
+        </button>
+        <button className="py-3 font-bold rounded bg-blue-600 hover:bg-blue-700" onClick={resetSimulation}>
+          Reset Simulation
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// --- Map
+function ImpactMap({ params, simulate }) {
+  const mapRef = useRef(null);
+  const impactMarkerRef = useRef(null);
+  const impactCircleRef = useRef(null);
+  const earthquakeZoneRef = useRef(null);
+  const tsunamiZoneRef = useRef(null);
+  const neossatOrbitRef = useRef(null);
+  const earthquakeMarkersRef = useRef([]);
+  const countryLabelsRef = useRef([]);
+  const popupRef = useRef(null);
+  const [impactLocation, setImpactLocation] = useState(null);
+  const simulationIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!mapRef.current) {
+      mapRef.current = L.map('map', { preferCanvas: true }).setView([0, 0], 2);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: 'Tiles © Esri', maxZoom: 18 }
+      ).addTo(mapRef.current);
+
+      // Add clean country labels
+      addCleanCountryLabels();
+      // Add NEO Surveyor orbit
+      addNeoSSatOrbit();
+    }
+  }, []);
+
+  // Function to add NEO Surveyor orbit
+  const addNeoSSatOrbit = () => {
+    if (!mapRef.current) return;
+
+    // Simulate NEO Surveyor orbit (Earth orbit)
+    const orbitPoints = [];
+    for (let i = 0; i <= 360; i += 10) {
+      const lat = Math.cos(i * Math.PI / 180) * 30;
+      const lon = i;
+      orbitPoints.push([lat, lon]);
+    }
+
+    neossatOrbitRef.current = L.polyline(orbitPoints, {
+      color: '#00ff88',
+      weight: 1,
+      opacity: 0.6,
+      dashArray: '2,2',
+      className: 'neossat-orbit'
+    }).addTo(mapRef.current);
+
+    // Add NEO Surveyor marker
+    L.marker([25, 45], {
+      icon: L.divIcon({
+        html: `<div style="
+          color: #00ff88;
+          font-size: 12px;
+          font-weight: bold;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+          background: rgba(0,0,0,0.7);
+          padding: 2px 6px;
+          border-radius: 3px;
+          border: 1px solid #00ff88;
+        ">NEO Surveyor</div>`,
+        iconSize: [80, 20],
+        iconAnchor: [40, 10]
+      })
+    }).addTo(mapRef.current).bindPopup(`
+      <div class="educational-popup">
+        <h4 class="font-bold text-green-400 mb-2">NEO Surveyor</h4>
+        <p class="text-sm">NASA space telescope for detecting hazardous asteroids.</p>
+        <p class="text-xs mt-2">• Detects 140m+ objects<br>• Years of advance warning<br>• Earth orbit operation</p>
+      </div>
+    `);
+  };
+
+  // Function to add clean country labels
+  const addCleanCountryLabels = () => {
+    if (!mapRef.current) return;
+
+    // Clear previous labels
+    countryLabelsRef.current.forEach(label => label.remove());
+    countryLabelsRef.current = [];
+
+    const cleanCountryLabels = [
+      // AMERICAS
+      { name: 'USA', pos: [39, -98], size: '12px' },
+      { name: 'CANADA', pos: [60, -110], size: '11px' },
+      { name: 'MEXICO', pos: [23, -102], size: '10px' },
+      { name: 'BRAZIL', pos: [-14, -53], size: '11px' },
+      { name: 'ARGENTINA', pos: [-38, -63], size: '9px' },
+      { name: 'CHILE', pos: [-35, -71], size: '8px' },
+      { name: 'COLOMBIA', pos: [4, -72], size: '8px' },
+      { name: 'PERU', pos: [-9, -75], size: '8px' },
+
+      // EUROPE
+      { name: 'RUSSIA', pos: [61, 90], size: '11px' },
+      { name: 'GERMANY', pos: [51, 10], size: '8px' },
+      { name: 'FRANCE', pos: [46, 2], size: '8px' },
+      { name: 'UK', pos: [55, -3], size: '7px' },
+      { name: 'SPAIN', pos: [40, -4], size: '8px' },
+      { name: 'ITALY', pos: [42, 12], size: '7px' },
+      { name: 'UKRAINE', pos: [49, 31], size: '8px' },
+
+      // ASIA
+      { name: 'CHINA', pos: [35, 104], size: '11px' },
+      { name: 'INDIA', pos: [22, 79], size: '9px' },
+      { name: 'JAPAN', pos: [36, 138], size: '8px' },
+      { name: 'INDONESIA', pos: [-2, 118], size: '8px' },
+      { name: 'PAKISTAN', pos: [30, 69], size: '7px' },
+      { name: 'SAUDI ARABIA', pos: [24, 45], size: '7px' },
+      { name: 'TURKEY', pos: [39, 35], size: '7px' },
+      { name: 'IRAN', pos: [32, 53], size: '7px' },
+
+      // AFRICA
+      { name: 'EGYPT', pos: [26, 29], size: '8px' },
+      { name: 'NIGERIA', pos: [9, 8], size: '7px' },
+      { name: 'SOUTH AFRICA', pos: [-30, 25], size: '7px' },
+      { name: 'ETHIOPIA', pos: [9, 40], size: '7px' },
+      { name: 'KENYA', pos: [0, 38], size: '6px' },
+      { name: 'ALGERIA', pos: [28, 2], size: '7px' },
+      { name: 'CONGO', pos: [-1, 23], size: '6px' },
+
+      // OCEANIA
+      { name: 'AUSTRALIA', pos: [-25, 135], size: '10px' },
+      { name: 'NEW ZEALAND', pos: [-42, 172], size: '7px' },
+      { name: 'PAPUA NEW GUINEA', pos: [-6, 145], size: '6px' },
+    ];
+
+    cleanCountryLabels.forEach(({ name, pos, size }) => {
+      const label = L.marker(pos, {
+        icon: L.divIcon({
+          html: `<div class="country-label" style="
+            color: rgba(255,255,255,0.9);
+            font-size: ${size};
+            font-weight: 500;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            white-space: nowrap;
+            background: transparent;
+            border: none;
+            padding: 0;
+          ">${name}</div>`,
+          iconSize: [name.length * 8, 20],
+          iconAnchor: [name.length * 4, 10],
+          className: 'country-label-container'
+        }),
+        interactive: false
+      }).addTo(mapRef.current);
+      
+      countryLabelsRef.current.push(label);
+    });
+  };
+
+  // Main effect to create simulation
+  useEffect(() => {
+    if (simulate && mapRef.current) {
+      // Generate unique ID for this simulation
+      simulationIdRef.current += 1;
+      const currentSimulationId = simulationIdRef.current;
+      
+      const lat = -15 + Math.random() * 10;
+      const lon = -35 + Math.random() * 10;
+      setImpactLocation({ lat, lon });
+
+      const {
+        energyMT,
+        effEnergyMT,
+        craterDiameter,
+        earthquakeMag,
+        fireballRadius,
+        earthquakeRadius,
+        tsunamiRadius,
+        reductionPercent,
+        neossatData
+      } = calculateImpactDetails(params.diameter, params.velocity, params.density, params.angle, params.defenseMethod);
+
+      const methodText = params.defenseMethod ? params.defenseMethod : "None";
+
+      // Clear previous layers
+      clearAllLayers();
+
+      // Impact marker
+      impactMarkerRef.current = L.circleMarker([lat, lon], {
+        radius: 8,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(mapRef.current);
+
+      // Crater circle
+      impactCircleRef.current = L.circle([lat, lon], {
+        radius: craterDiameter * 1000 / 2,
+        color: 'red',
+        fillColor: 'red',
+        fillOpacity: 0.3,
+        weight: 2,
+      }).addTo(mapRef.current);
+
+      // Earthquake zone
+      earthquakeZoneRef.current = L.circle([lat, lon], {
+        radius: earthquakeRadius * 1000,
+        color: 'orange',
+        fillColor: 'orange',
+        fillOpacity: 0.1,
+        weight: 2,
+        dashArray: '5,5',
+        className: 'earthquake-zone'
+      }).addTo(mapRef.current);
+
+      // Tsunami zone (if applicable)
+      if (tsunamiRadius > 0) {
+        tsunamiZoneRef.current = L.circle([lat, lon], {
+          radius: tsunamiRadius * 1000,
+          color: 'blue',
+          fillColor: 'blue',
+          fillOpacity: 0.1,
+          weight: 2,
+          dashArray: '10,5',
+          className: 'tsunami-zone'
+        }).addTo(mapRef.current);
+      }
+
+      // Fetch seismic data and add markers
+      fetchUSGSEarthquakeZones(lat, lon, 1000).then(data => {
+        // Check if still the same simulation
+        if (currentSimulationId !== simulationIdRef.current) return;
+        
+        earthquakeMarkersRef.current = [];
+        data.forEach(quake => {
+          const quakeCoords = quake.geometry.coordinates;
+          const marker = L.circleMarker([quakeCoords[1], quakeCoords[0]], {
+            radius: Math.max(2, quake.properties.mag),
+            color: 'yellow',
+            fillColor: 'yellow',
+            fillOpacity: 0.7,
+            weight: 1,
+          }).bindPopup(`
+            <strong>Earthquake M${quake.properties.mag.toFixed(1)}</strong><br/>
+            ${new Date(quake.properties.time).toLocaleDateString()}<br/>
+            Depth: ${quakeCoords[2].toFixed(1)} km
+          `).addTo(mapRef.current);
+          earthquakeMarkersRef.current.push(marker);
+        });
+      });
+
+      const popupContent = `
+        <div style="font-size: 14px; line-height: 1.3; color: #222;">
+          <strong>Impact Result</strong><br/>
+          Defense Method: <strong>${methodText}</strong><br/>
+          Energy Reduction: <strong>${reductionPercent}%</strong><br/>
+          Crater Diameter: ${craterDiameter.toFixed(2)} km<br/>
+          Fireball Radius: ${fireballRadius.toFixed(2)} km<br/>
+          Earthquake Magnitude: ${earthquakeMag.toFixed(2)}<br/>
+          Earthquake Radius: ${earthquakeRadius.toFixed(0)} km<br/>
+          Tsunami Radius: ${tsunamiRadius.toFixed(0)} km<br/>
+          Total Energy: ${energyMT.toFixed(0)} MT<br/>
+          Effective Energy: ${effEnergyMT.toFixed(0)} MT<br/><br/>
+          <strong>NEO Surveyor Analysis:</strong><br/>
+          Detection: <strong style="color: ${neossatData.wouldDetect ? 'green' : 'red'}">${neossatData.wouldDetect ? 'LIKELY' : 'UNLIKELY'}</strong><br/>
+          Warning Time: ${neossatData.warningTime} years<br/>
+          Palermo Scale: ${neossatData.palermoScale}
+        </div>
+      `;
+
+      if (popupRef.current) {
+        popupRef.current.setContent(popupContent);
+        popupRef.current.setLatLng([lat, lon]);
+      } else {
+        popupRef.current = L.popup({
+          closeButton: false,
+          autoClose: false,
+          closeOnClick: false,
+          className: 'impact-popup',
+          offset: L.point(0, -10)
+        })
+          .setLatLng([lat, lon])
+          .setContent(popupContent)
+          .openOn(mapRef.current);
+      }
+
+      mapRef.current.setView([lat, lon], 5);
+    }
+  }, [simulate, params.diameter, params.velocity, params.density, params.angle, params.defenseMethod]);
+
+  // Effect to clear map when simulation stops
+  useEffect(() => {
+    if (!simulate) {
+      clearAllLayers();
+      setImpactLocation(null);
+    }
+  }, [simulate]);
+
+  // Function to clear all layers
+  const clearAllLayers = () => {
+    [impactMarkerRef.current, impactCircleRef.current, earthquakeZoneRef.current, tsunamiZoneRef.current].forEach(layer => {
+      if (layer) {
+        layer.remove();
+      }
+    });
+    
+    earthquakeMarkersRef.current.forEach(marker => {
+      if (marker) marker.remove();
+    });
+    earthquakeMarkersRef.current = [];
+    
+    if (popupRef.current) {
+      popupRef.current.remove();
+      popupRef.current = null;
+    }
+  };
+
+  return <div id="map" className="flex-1"></div>;
+}
+
+// --- App
+function App(){
+    const [params, setParams] = useState({
+        diameter: 350,
+        velocity: 18,
+        angle: 45,
+        density: 'Rocky',
+        nasaId: "",
+        defenseMethod: null,
+        });
+
+  const [simulate,setSimulate] = useState(false);
+  const [asteroids, setAsteroids] = useState([]);
+
+  // Update params with selected asteroid data
+  function setParamsFromAsteroid(asteroid){
+    const diamMax = asteroid.estimated_diameter.meters.estimated_diameter_max;
+    const approach = asteroid.close_approach_data[0];
+    let velocity = approach ? parseFloat(approach.relative_velocity.kilometers_per_second) : 20;
+
+    setParams({
+      diameter: Math.round(diamMax),
+      velocity: Math.round(velocity*10)/10,
+      angle: 45,
+      density: 'Rocky',
+      nasaId: asteroid.id,
+      defenseMethod: params.defenseMethod,
+    });
+    setSimulate(false);
+  }
+
+  // Function to reset simulation
+  function resetSimulation() {
+    setSimulate(false);
+    setParams({
+      diameter: 350,
+      velocity: 18,
+      angle: 45,
+      density: 'Rocky',
+      nasaId: "",
+      defenseMethod: null,
+    });
+  }
+
+  useEffect(() => {
+    fetchAsteroids(NASA_API_KEY).then(data => {
+      setAsteroids(data || []);
+    });
+  }, []);
+
+  return (
+    <div className="flex h-screen">
+      <Controls 
+        params={params} 
+        setParams={setParams} 
+        simulate={simulate} 
+        toggleSim={()=>setSimulate(!simulate)} 
+        asteroids={asteroids} 
+        setParamsFromAsteroid={setParamsFromAsteroid}
+        resetSimulation={resetSimulation}
+      />
+      <ImpactMap params={params} simulate={simulate} />
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
