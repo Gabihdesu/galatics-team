@@ -9,7 +9,7 @@ def home():
 
 @app.route('/video')
 def video():
-    return render_template('video.html')
+    return render_template('video.html') 
 
 @app.route('/history')
 def history():
