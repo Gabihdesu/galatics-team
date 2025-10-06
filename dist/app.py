@@ -19,6 +19,7 @@ def history():
 def simulator():
     return render_template('simulator.html')
 
+
 @app.route('/team')
 def team():
     return render_template('team.html')
